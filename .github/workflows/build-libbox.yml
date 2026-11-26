@@ -36,14 +36,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android NDK + SDK (use preinstalled SDK)
+      - name: Prepare Android SDK + NDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/cmdline-tools" || true
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDKM=""
+          for c in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager" "$(command -v sdkmanager || true)"; do
+            if [ -n "$c" ] && [ -x "$c" ]; then SDKM="$c"; break; fi
+          done
+          echo "Using sdkmanager: $SDKM"
+          NDK_DIR="$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$NDK_DIR" ]; then
+            echo "No preinstalled NDK; installing r26"
+            yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+            "$SDKM" "ndk;26.1.10909125"
+            NDK_DIR="$ANDROID_HOME/ndk/26.1.10909125"
+          fi
+          echo "NDK_DIR=$NDK_DIR"
+          ls "$NDK_DIR" | head
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK_DIR" >> "$GITHUB_ENV"
 
       - name: Install gomobile (sagernet fork)
         run: |
